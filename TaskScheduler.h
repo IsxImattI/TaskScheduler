@@ -5,6 +5,7 @@
 #include "PriorityQueue.h"
 #include "Metrics.h"
 #include "Logger.h"
+#include "Future.h"
 
 // task priority levels
 enum TaskPriority {
@@ -197,6 +198,27 @@ public:
     // get metrics
     Metrics& getMetrics() {
         return metrics;
+    }
+
+    // enqueue task that returns a value
+    template<typename T>
+    Future<T>* enqueueTaskWithReturn(T (*function)(void*), void* argument, TaskPriority priority = MEDIUM) {
+        // create future
+        Future<T>* future = new Future<T>();
+        
+        // create wrapper task
+        TaskWithReturn<T>* returnTask = new TaskWithReturn<T>(function, argument, future);
+        
+        // enqueue wrapper
+        Task task((TaskFunction)ReturnTaskWrapper<T>, returnTask, priority, -1, nullptr);
+        taskQueue.enqueue(task);
+        metrics.taskEnqueued();
+        
+        char msg[128];
+        sprintf_s(msg, "Task with return value enqueued");
+        globalLogger.info(msg);
+        
+        return future;
     }
 };
 

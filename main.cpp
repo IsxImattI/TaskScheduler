@@ -3,126 +3,156 @@
 #include "TaskScheduler.h"
 #include "Logger.h"
 
-void LongRunningTask(void* arg) {
-    int taskId = *(int*)arg;
+// task that returns int - calculates factorial
+int CalculateFactorial(void* arg) {
+    int n = *(int*)arg;
     
     char msg[128];
-    sprintf_s(msg, "Task %d started (will run for 3 seconds)", taskId);
+    sprintf_s(msg, "Calculating factorial of %d...", n);
     globalLogger.task(msg);
     
-    Sleep(3000);  // simulate long work
+    Sleep(1000);  // simulate work
     
-    sprintf_s(msg, "Task %d completed!", taskId);
+    int result = 1;
+    for (int i = 2; i <= n; i++) {
+        result *= i;
+    }
+    
+    sprintf_s(msg, "Factorial(%d) = %d", n, result);
     globalLogger.success(msg);
+    
+    return result;
 }
 
-void QuickTask(void* arg) {
-    int taskId = *(int*)arg;
+// task that returns int - sum of squares
+int SumOfSquares(void* arg) {
+    int n = *(int*)arg;
     
     char msg[128];
-    sprintf_s(msg, "Quick task %d executing", taskId);
+    sprintf_s(msg, "Calculating sum of squares up to %d...", n);
     globalLogger.task(msg);
     
-    Sleep(500);
+    Sleep(800);  // simulate work
     
-    sprintf_s(msg, "Quick task %d done!", taskId);
+    int result = 0;
+    for (int i = 1; i <= n; i++) {
+        result += i * i;
+    }
+    
+    sprintf_s(msg, "Sum of squares up to %d = %d", n, result);
     globalLogger.success(msg);
+    
+    return result;
+}
+
+// task that returns int - fibonacci
+int Fibonacci(void* arg) {
+    int n = *(int*)arg;
+    
+    char msg[128];
+    sprintf_s(msg, "Calculating Fibonacci(%d)...", n);
+    globalLogger.task(msg);
+    
+    Sleep(1200);  // simulate work
+    
+    if (n <= 1) return n;
+    
+    int a = 0, b = 1;
+    for (int i = 2; i <= n; i++) {
+        int temp = a + b;
+        a = b;
+        b = temp;
+    }
+    
+    sprintf_s(msg, "Fibonacci(%d) = %d", n, b);
+    globalLogger.success(msg);
+    
+    return b;
 }
 
 int main() {
-    globalLogger.info("=== TaskScheduler with Task Cancellation Demo ===");
+    globalLogger.info("=== TaskScheduler with Future/Promise Pattern ===");
     
-    char msg[128];
+    char msg[256];
     sprintf_s(msg, "Main thread ID: %lu", GetCurrentThreadId());
     globalLogger.info(msg);
     std::cout << std::endl;
     
-    // create scheduler with 2 worker threads
-    globalLogger.info("Creating scheduler with 2 worker threads...");
-    TaskScheduler scheduler(2);
+    // create scheduler with 3 worker threads
+    globalLogger.info("Creating scheduler with 3 worker threads...");
+    TaskScheduler scheduler(3);
     globalLogger.success("Scheduler created successfully!");
     std::cout << std::endl;
     
-    // scenario: enqueue multiple cancellable tasks
-    globalLogger.info("=== SCENARIO: Cancel tasks before execution ===");
+    // dynamic allocation for task arguments - no hardcoded limits
+    int* args = new int[3];
+    args[0] = 5;   // factorial(5)
+    args[1] = 10;  // sum of squares up to 10
+    args[2] = 15;  // fibonacci(15)
+    
+    globalLogger.info("=== Enqueueing tasks with return values ===");
     std::cout << std::endl;
     
-    // DYNAMIC ALLOCATION - no hardcoded limits!
-    const int numLongTasks = 2;
-    const int numCancellableTasks = 5;
-    const int totalTasks = numLongTasks + numCancellableTasks;
+    // enqueue tasks that return values using Future/Promise pattern
+    globalLogger.info("Enqueuing Factorial(5) with HIGH priority...");
+    Future<int>* factorialFuture = scheduler.enqueueTaskWithReturn<int>(
+        CalculateFactorial, &args[0], HIGH
+    );
     
-    // dynamically allocate task data
-    int* taskData = new int[totalTasks];
-    for (int i = 0; i < totalTasks; i++) {
-        taskData[i] = i;
+    globalLogger.info("Enqueuing SumOfSquares(10) with MEDIUM priority...");
+    Future<int>* sumFuture = scheduler.enqueueTaskWithReturn<int>(
+        SumOfSquares, &args[1], MEDIUM
+    );
+    
+    globalLogger.info("Enqueuing Fibonacci(15) with CRITICAL priority...");
+    Future<int>* fiboFuture = scheduler.enqueueTaskWithReturn<int>(
+        Fibonacci, &args[2], CRITICAL
+    );
+    
+    std::cout << std::endl;
+    globalLogger.success("All tasks enqueued! Main thread continues...");
+    globalLogger.info("Main thread doing other work while tasks execute asynchronously...");
+    std::cout << std::endl;
+    
+    // main thread can do other work here - non-blocking!
+    for (int i = 0; i < 3; i++) {
+        sprintf_s(msg, "Main thread doing work... (%d/3)", i+1);
+        globalLogger.info(msg);
+        Sleep(400);
     }
     
-    // dynamically allocate array for cancellable task IDs
-    int* cancelIds = new int[numCancellableTasks];
-    
-    // enqueue long running tasks (they will block workers)
-    sprintf_s(msg, "Enqueueing %d long-running tasks (3 sec each)...", numLongTasks);
-    globalLogger.info(msg);
-    
-    for (int i = 0; i < numLongTasks; i++) {
-        scheduler.enqueueTask(LongRunningTask, &taskData[i], LOW, i);
-    }
-    
-    Sleep(100);
-    
-    // enqueue CANCELLABLE tasks
-    sprintf_s(msg, "Enqueueing %d CANCELLABLE tasks...", numCancellableTasks);
-    globalLogger.warning(msg);
-    
-    for (int i = 0; i < numCancellableTasks; i++) {
-        cancelIds[i] = scheduler.enqueueCancellableTask(
-            QuickTask, 
-            &taskData[numLongTasks + i], 
-            MEDIUM
-        );
-    }
-    
-    // print all cancellable IDs
-    std::cout << "  Cancellable task IDs: ";
-    for (int i = 0; i < numCancellableTasks; i++) {
-        std::cout << cancelIds[i];
-        if (i < numCancellableTasks - 1) std::cout << ", ";
-    }
+    std::cout << std::endl;
+    globalLogger.warning("=== Now waiting for results (blocking until ready) ===");
     std::cout << std::endl;
     
-    Sleep(500);
+    // get results (blocks until ready) - demonstrates Future.get()
+    globalLogger.info("Waiting for factorial result...");
+    int factorialResult = factorialFuture->get();
+    sprintf_s(msg, "Got result: Factorial(5) = %d", factorialResult);
+    globalLogger.success(msg);
     
-    // cancel some tasks BEFORE they execute
-    std::cout << std::endl;
-    globalLogger.error("CANCELLING tasks at indices 1, 3, and 4...");
+    globalLogger.info("Waiting for sum of squares result...");
+    int sumResult = sumFuture->get();
+    sprintf_s(msg, "Got result: Sum of Squares(10) = %d", sumResult);
+    globalLogger.success(msg);
     
-    scheduler.cancelTask(cancelIds[1]);  // cancel second task
-    scheduler.cancelTask(cancelIds[3]);  // cancel fourth task
-    scheduler.cancelTask(cancelIds[4]);  // cancel fifth task
-    
-    std::cout << std::endl;
-    globalLogger.info("Expected result:");
-    std::cout << "  - Long running tasks should complete\n";
-    std::cout << "  - Cancellable tasks at indices 0, 2 should execute\n";
-    std::cout << "  - Cancellable tasks at indices 1, 3, 4 should be CANCELLED\n" << std::endl;
-    
-    std::cout << "=== Execution: ===\n" << std::endl;
-    
-    // wait for all to complete
-    Sleep(8000);
+    globalLogger.info("Waiting for fibonacci result...");
+    int fiboResult = fiboFuture->get();
+    sprintf_s(msg, "Got result: Fibonacci(15) = %d", fiboResult);
+    globalLogger.success(msg);
     
     std::cout << std::endl;
-    globalLogger.success("Demo completed!");
-    
-    // final metrics
-    std::cout << "\n";
-    globalLogger.info("=== FINAL METRICS ===");
-    scheduler.getMetrics().printStats();
+    globalLogger.success("=== All results received! ===");
     
     // cleanup - no memory leaks
-    delete[] taskData;
-    delete[] cancelIds;
+    delete factorialFuture;
+    delete sumFuture;
+    delete fiboFuture;
+    delete[] args;
+    
+    std::cout << std::endl;
+    globalLogger.info("=== FINAL METRICS ===");
+    scheduler.getMetrics().printStats();
     
     return 0;
 }
