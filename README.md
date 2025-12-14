@@ -17,6 +17,7 @@ A production-ready task scheduler implementation in C++ using WinAPI primitives,
 - 🛡️ **Graceful Shutdown** - Proper cleanup and thread lifecycle management
 - 🛑 **Task Cancellation** - Cancel pending tasks before execution (dynamic linked list)
 - 🔮 **Future/Promise Pattern** - Async task execution with typed return values
+- 📈 **Benchmark Suite** - Performance analysis with thread/task scaling tests
 
 ### Technical Highlights
 - **No STL Dependencies** - Custom implementations of Queue and PriorityQueue
