@@ -3,6 +3,7 @@
 
 #include <windows.h>
 #include "PriorityQueue.h"
+#include "Metrics.h"
 
 // task priority levels
 enum TaskPriority {
@@ -38,6 +39,7 @@ private:
     HANDLE* workerThreads;
     int threadCount;
     bool isRunning;
+    Metrics metrics;
     
     static DWORD WINAPI WorkerThreadFunction(LPVOID param) {
         TaskScheduler* scheduler = (TaskScheduler*)param;
@@ -50,7 +52,9 @@ private:
             }
             
             if (task.function != nullptr) {
+                scheduler->metrics.taskStarted();
                 task.function(task.argument);
+                scheduler->metrics.taskCompleted();
             }
         }
         
@@ -82,12 +86,19 @@ public:
     void enqueueTask(TaskFunction function, void* argument = nullptr) {
         Task task(function, argument, MEDIUM, -1);
         taskQueue.enqueue(task);
+        metrics.taskEnqueued();
     }
 
     // enqueue with specific priority
     void enqueueTask(TaskFunction function, void* argument, TaskPriority priority, int taskId = -1) {
         Task task(function, argument, priority, taskId);
         taskQueue.enqueue(task);
+        metrics.taskEnqueued();
+    }
+
+    // get metrics
+    Metrics& getMetrics() {
+        return metrics;
     }
 };
 
