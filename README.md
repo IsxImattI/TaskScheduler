@@ -169,7 +169,7 @@ User Thread                Worker Threads
 - [ ] **Task Dependencies** - DAG-based task execution order
 - [ ] **Return Values** - Future/Promise pattern for async results
 - [ ] **Dynamic Thread Pool** - Auto-scaling based on load
-- [x ] **Task Cancellation** - Ability to cancel pending tasks
+- [x] **Task Cancellation** - Ability to cancel pending tasks
 - [ ] **Configuration File** - JSON/INI for scheduler settings
 - [ ] **Cross-Platform Support** - Abstraction layer for Linux/macOS
 - [ ] **Work Stealing** - Load balancing between threads
