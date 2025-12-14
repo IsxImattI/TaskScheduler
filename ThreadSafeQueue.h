@@ -1,4 +1,3 @@
-// ThreadSafeQueue.h
 #ifndef THREADSAFE_QUEUE_H
 #define THREADSAFE_QUEUE_H
 
@@ -19,9 +18,9 @@ private:
     int count;
 
     // WinAPI synchronization primitives
-    CRITICAL_SECTION cs;           // Mutex za zašèito queue
-    CONDITION_VARIABLE notEmpty;   // Signal ko queue ni prazen
-    bool isShutdown;               // Flag za shutdown
+	CRITICAL_SECTION cs;           // mutex for protecting access
+	CONDITION_VARIABLE notEmpty;   // signal for not empty queue
+	bool isShutdown;               // flag for shutdown
 
 public:
     ThreadSafeQueue() : head(nullptr), tail(nullptr), count(0), isShutdown(false) {
@@ -32,7 +31,7 @@ public:
     ~ThreadSafeQueue() {
         EnterCriticalSection(&cs);
 
-        // Poèisti vse node-e
+		// cleanup nodes
         while (head != nullptr) {
             Node* temp = head;
             head = head->next;
@@ -43,7 +42,7 @@ public:
         DeleteCriticalSection(&cs);
     }
 
-    // Dodaj element (thread-safe)
+	// add element
     void enqueue(const T& value) {
         EnterCriticalSection(&cs);
 
@@ -58,28 +57,28 @@ public:
         }
         count++;
 
-        // Obvesti waiting threads da je nov element
+		// notify one waiting thread
         WakeConditionVariable(&notEmpty);
 
         LeaveCriticalSection(&cs);
     }
 
-    // Odstrani element (blocking - èaka èe je prazen)
+	// remove element
     bool dequeue(T& outValue) {
         EnterCriticalSection(&cs);
 
-        // Èakaj dokler ni queue prazen ALI dokler ni shutdown
+		// wait until not empty or shutdown
         while (head == nullptr && !isShutdown) {
             SleepConditionVariableCS(&notEmpty, &cs, INFINITE);
         }
 
-        // Èe je shutdown in queue prazen, vrni false
+		// if shutdown and empty, return false
         if (isShutdown && head == nullptr) {
             LeaveCriticalSection(&cs);
             return false;
         }
 
-        // Odstrani element
+		// remove from head
         Node* temp = head;
         outValue = head->data;
         head = head->next;
@@ -109,11 +108,11 @@ public:
         return sz;
     }
 
-    // Za graceful shutdown
+	// for shutdown
     void shutdown() {
         EnterCriticalSection(&cs);
         isShutdown = true;
-        WakeAllConditionVariable(&notEmpty);  // Zbudi vse waiting threads
+		WakeAllConditionVariable(&notEmpty);  // wake all waiting threads
         LeaveCriticalSection(&cs);
     }
 };
