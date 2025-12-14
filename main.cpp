@@ -3,104 +3,98 @@
 #include "TaskScheduler.h"
 #include "Logger.h"
 
-void PriorityTask(void* arg) {
+void LongRunningTask(void* arg) {
     int taskId = *(int*)arg;
     
     char msg[128];
-    sprintf_s(msg, "Task %d started on thread %lu", taskId, GetCurrentThreadId());
+    sprintf_s(msg, "Task %d started (will run for 3 seconds)", taskId);
     globalLogger.task(msg);
     
-    Sleep(1000);  // simulate work
+    Sleep(3000);  // simulate long work
     
     sprintf_s(msg, "Task %d completed!", taskId);
     globalLogger.success(msg);
 }
 
-// monitoring thread - prints metrics every second
-DWORD WINAPI MonitoringThread(LPVOID param) {
-    TaskScheduler* scheduler = (TaskScheduler*)param;
+void QuickTask(void* arg) {
+    int taskId = *(int*)arg;
     
-    for (int i = 0; i < 10; i++) {
-        Sleep(1000);  // every 1 second
-        scheduler->getMetrics().printStats();
-    }
+    char msg[128];
+    sprintf_s(msg, "Quick task %d executing", taskId);
+    globalLogger.task(msg);
     
-    return 0;
+    Sleep(500);
+    
+    sprintf_s(msg, "Quick task %d done!", taskId);
+    globalLogger.success(msg);
 }
 
 int main() {
-    globalLogger.info("=== TaskScheduler with Priority Queue & Metrics ===");
+    globalLogger.info("=== TaskScheduler with Task Cancellation Demo ===");
     
     char msg[128];
     sprintf_s(msg, "Main thread ID: %lu", GetCurrentThreadId());
     globalLogger.info(msg);
-    
     std::cout << std::endl;
     
-    // create scheduler with 2 worker threads (for clearer output)
+    // create scheduler with 2 worker threads
     globalLogger.info("Creating scheduler with 2 worker threads...");
     TaskScheduler scheduler(2);
     globalLogger.success("Scheduler created successfully!");
-    
-    // start monitoring thread for real-time metrics
-    globalLogger.info("Starting monitoring thread...");
-    HANDLE monitor = CreateThread(NULL, 0, MonitoringThread, &scheduler, 0, NULL);
-    
-    std::cout << std::endl;
-    globalLogger.info("Enqueueing tasks with different priorities...");
     std::cout << std::endl;
     
-    // create task IDs
-    int taskIds[12];
-    for (int i = 0; i < 12; i++) {
-        taskIds[i] = i;
+    // scenario: enqueue multiple cancellable tasks
+    globalLogger.info("=== SCENARIO: Cancel tasks before execution ===");
+    std::cout << std::endl;
+    
+    int taskData[10];
+    for (int i = 0; i < 10; i++) {
+        taskData[i] = i;
     }
     
-    // enqueue LOW priority tasks
-    globalLogger.info("Adding LOW priority tasks (0-2)...");
-    scheduler.enqueueTask(PriorityTask, &taskIds[0], LOW, 0);
-    scheduler.enqueueTask(PriorityTask, &taskIds[1], LOW, 1);
-    scheduler.enqueueTask(PriorityTask, &taskIds[2], LOW, 2);
-    
-    Sleep(100); // small delay
-    
-    // enqueue MEDIUM priority tasks
-    globalLogger.info("Adding MEDIUM priority tasks (3-5)...");
-    scheduler.enqueueTask(PriorityTask, &taskIds[3], MEDIUM, 3);
-    scheduler.enqueueTask(PriorityTask, &taskIds[4], MEDIUM, 4);
-    scheduler.enqueueTask(PriorityTask, &taskIds[5], MEDIUM, 5);
+    // enqueue 2 long running tasks (they will block workers)
+    globalLogger.info("Enqueueing 2 long-running tasks (3 sec each)...");
+    scheduler.enqueueTask(LongRunningTask, &taskData[0], LOW, 0);
+    scheduler.enqueueTask(LongRunningTask, &taskData[1], LOW, 1);
     
     Sleep(100);
     
-    // enqueue HIGH priority tasks
-    globalLogger.warning("Adding HIGH priority tasks (6-8)...");
-    scheduler.enqueueTask(PriorityTask, &taskIds[6], HIGH, 6);
-    scheduler.enqueueTask(PriorityTask, &taskIds[7], HIGH, 7);
-    scheduler.enqueueTask(PriorityTask, &taskIds[8], HIGH, 8);
+    // enqueue CANCELLABLE tasks
+    globalLogger.warning("Enqueueing 5 CANCELLABLE tasks...");
+    int cancelId1 = scheduler.enqueueCancellableTask(QuickTask, &taskData[2], MEDIUM);
+    int cancelId2 = scheduler.enqueueCancellableTask(QuickTask, &taskData[3], MEDIUM);
+    int cancelId3 = scheduler.enqueueCancellableTask(QuickTask, &taskData[4], MEDIUM);
+    int cancelId4 = scheduler.enqueueCancellableTask(QuickTask, &taskData[5], MEDIUM);
+    int cancelId5 = scheduler.enqueueCancellableTask(QuickTask, &taskData[6], MEDIUM);
     
-    Sleep(100);
+    sprintf_s(msg, "Cancellable task IDs: %d, %d, %d, %d, %d", 
+              cancelId1, cancelId2, cancelId3, cancelId4, cancelId5);
+    globalLogger.info(msg);
     
-    // enqueue CRITICAL priority tasks
-    globalLogger.error("Adding CRITICAL priority tasks (9-11)...");
-    scheduler.enqueueTask(PriorityTask, &taskIds[9], CRITICAL, 9);
-    scheduler.enqueueTask(PriorityTask, &taskIds[10], CRITICAL, 10);
-    scheduler.enqueueTask(PriorityTask, &taskIds[11], CRITICAL, 11);
+    Sleep(500);
     
-    std::cout << "\n=== Expected execution order: ===\n";
-    std::cout << "CRITICAL tasks (9-11) should execute FIRST\n";
-    std::cout << "HIGH tasks (6-8) should execute SECOND\n";
-    std::cout << "MEDIUM tasks (3-5) should execute THIRD\n";
-    std::cout << "LOW tasks (0-2) should execute LAST\n" << std::endl;
+    // cancel some tasks BEFORE they execute
+    std::cout << std::endl;
+    globalLogger.error("CANCELLING tasks 1, 3, and 4...");
+    scheduler.cancelTask(cancelId2);  // cancel task 3
+    scheduler.cancelTask(cancelId4);  // cancel task 5
+    scheduler.cancelTask(cancelId5);  // cancel task 6
     
-    std::cout << "\n=== Actual execution with Real-Time Metrics: ===\n" << std::endl;
+    std::cout << std::endl;
+    globalLogger.info("Expected result:");
+    std::cout << "  - Tasks 0, 1 should complete (long running)\n";
+    std::cout << "  - Tasks 2, 4 should execute (NOT cancelled)\n";
+    std::cout << "  - Tasks 3, 5, 6 should be CANCELLED\n" << std::endl;
     
-    // wait for monitoring thread to finish
-    WaitForSingleObject(monitor, INFINITE);
-    CloseHandle(monitor);
+    std::cout << "=== Execution: ===\n" << std::endl;
     
-    globalLogger.success("All tasks completed!");
+    // wait for all to complete
+    Sleep(8000);
     
-    // print final metrics
+    std::cout << std::endl;
+    globalLogger.success("Demo completed!");
+    
+    // final metrics
     std::cout << "\n";
     globalLogger.info("=== FINAL METRICS ===");
     scheduler.getMetrics().printStats();
