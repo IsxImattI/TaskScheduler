@@ -116,6 +116,7 @@ TaskScheduler/
 ├── Metrics.h            # Performance tracking system
 ├── Logger.h             # Timestamped, color-coded logging
 ├── Future.h             # Future/Promise pattern for async results
+├── Benchmark.h          # Performance benchmark suite
 └── main.cpp             # Demo & test application
 ```
 
@@ -175,7 +176,7 @@ User Thread                Worker Threads
 - [ ] **Configuration File** - JSON/INI for scheduler settings
 - [ ] **Cross-Platform Support** - Abstraction layer for Linux/macOS
 - [ ] **Work Stealing** - Load balancing between threads
-- [ ] **Benchmark Suite** - Performance comparison tests
+- [x] **Benchmark Suite** - Performance comparison tests
 
 ## 📝 Technical Details
 
