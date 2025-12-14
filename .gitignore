@@ -4,6 +4,10 @@
 *.suo
 *.userosscache
 *.sln.docstates
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
 
 # Build results
 [Dd]ebug/
@@ -12,6 +16,8 @@ x64/
 x86/
 [Bb]in/
 [Oo]bj/
+build/
+out/
 
 # Visual C++ cache files
 ipch/
@@ -29,3 +35,33 @@ ipch/
 *.dll
 *.obj
 *.pdb
+*.o
+*.a
+*.lib
+*.exp
+*.ilk
+*.idb
+
+# VSCode
+.vscode/
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/settings.json
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+!CMakeLists.txt
+
+# OS specific
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
