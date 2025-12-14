@@ -127,6 +127,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="ThreadSafeQueue.h" />
     <ClInclude Include="Queue.h" />
   </ItemGroup>
   <ItemGroup>
