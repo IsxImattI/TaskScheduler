@@ -17,7 +17,7 @@ enum TaskPriority {
 // function pointer type for tasks
 typedef void (*TaskFunction)(void*);
 
-// task structure - UPDATED with cancellation support
+// task structure - with cancellation support
 struct Task {
     TaskFunction function;
     void* argument;
@@ -49,17 +49,17 @@ private:
     bool isRunning;
     Metrics metrics;
     
-    // cancellation tracking
+    // cancellation tracking - DYNAMIC LINKED LIST (no limit!)
     struct CancellableTask {
         int taskId;
         volatile bool cancelFlag;
+        CancellableTask* next;
         
-        CancellableTask(int id) : taskId(id), cancelFlag(false) {}
+        CancellableTask(int id) : taskId(id), cancelFlag(false), next(nullptr) {}
     };
     
-    // simple array to store cancellable tasks (max 100)
-    CancellableTask* cancellableTasks[100];
-    int cancellableTaskCount;
+    CancellableTask* cancellableTasksHead;  // head of linked list
+    int nextTaskId;  // auto-increment ID
     CRITICAL_SECTION cancelCs;
     
     static DWORD WINAPI WorkerThreadFunction(LPVOID param) {
@@ -91,14 +91,10 @@ private:
     }
     
 public:
-    TaskScheduler(int numThreads) : threadCount(numThreads), isRunning(true), cancellableTaskCount(0) {
+    TaskScheduler(int numThreads) : threadCount(numThreads), isRunning(true), 
+                                     cancellableTasksHead(nullptr), nextTaskId(0) {
         workerThreads = new HANDLE[threadCount];
         InitializeCriticalSection(&cancelCs);
-        
-        // initialize cancellable tasks array
-        for (int i = 0; i < 100; i++) {
-            cancellableTasks[i] = nullptr;
-        }
         
         for (int i = 0; i < threadCount; i++) {
             workerThreads[i] = CreateThread(
@@ -116,10 +112,13 @@ public:
         }
         delete[] workerThreads;
         
-        // cleanup cancellable tasks
+        // cleanup cancellable tasks linked list
         EnterCriticalSection(&cancelCs);
-        for (int i = 0; i < cancellableTaskCount; i++) {
-            delete cancellableTasks[i];
+        CancellableTask* current = cancellableTasksHead;
+        while (current != nullptr) {
+            CancellableTask* next = current->next;
+            delete current;
+            current = next;
         }
         LeaveCriticalSection(&cancelCs);
         DeleteCriticalSection(&cancelCs);
@@ -139,19 +138,17 @@ public:
         metrics.taskEnqueued();
     }
     
-    // enqueue CANCELLABLE task - returns task ID
+    // enqueue CANCELLABLE task - returns task ID (NO LIMIT!)
     int enqueueCancellableTask(TaskFunction function, void* argument, TaskPriority priority = MEDIUM) {
         EnterCriticalSection(&cancelCs);
         
-        if (cancellableTaskCount >= 100) {
-            LeaveCriticalSection(&cancelCs);
-            globalLogger.error("Too many cancellable tasks!");
-            return -1;
-        }
-        
-        int taskId = cancellableTaskCount;
+        // create new cancellable task with auto-increment ID
+        int taskId = nextTaskId++;
         CancellableTask* ct = new CancellableTask(taskId);
-        cancellableTasks[cancellableTaskCount++] = ct;
+        
+        // add to front of linked list (O(1) insertion)
+        ct->next = cancellableTasksHead;
+        cancellableTasksHead = ct;
         
         LeaveCriticalSection(&cancelCs);
         
@@ -159,17 +156,23 @@ public:
         taskQueue.enqueue(task);
         metrics.taskEnqueued();
         
+        char msg[128];
+        sprintf_s(msg, "Cancellable task %d enqueued", taskId);
+        globalLogger.info(msg);
+        
         return taskId;
     }
     
-    // cancel task by ID
+    // cancel task by ID - searches linked list
     bool cancelTask(int taskId) {
         EnterCriticalSection(&cancelCs);
         
+        CancellableTask* current = cancellableTasksHead;
         bool found = false;
-        for (int i = 0; i < cancellableTaskCount; i++) {
-            if (cancellableTasks[i]->taskId == taskId) {
-                cancellableTasks[i]->cancelFlag = true;
+        
+        while (current != nullptr) {
+            if (current->taskId == taskId) {
+                current->cancelFlag = true;
                 found = true;
                 
                 char msg[128];
@@ -177,6 +180,7 @@ public:
                 globalLogger.warning(msg);
                 break;
             }
+            current = current->next;
         }
         
         LeaveCriticalSection(&cancelCs);

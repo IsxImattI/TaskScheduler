@@ -47,44 +47,65 @@ int main() {
     globalLogger.info("=== SCENARIO: Cancel tasks before execution ===");
     std::cout << std::endl;
     
-    int taskData[10];
-    for (int i = 0; i < 10; i++) {
+    // DYNAMIC ALLOCATION - no hardcoded limits!
+    const int numLongTasks = 2;
+    const int numCancellableTasks = 5;
+    const int totalTasks = numLongTasks + numCancellableTasks;
+    
+    // dynamically allocate task data
+    int* taskData = new int[totalTasks];
+    for (int i = 0; i < totalTasks; i++) {
         taskData[i] = i;
     }
     
-    // enqueue 2 long running tasks (they will block workers)
-    globalLogger.info("Enqueueing 2 long-running tasks (3 sec each)...");
-    scheduler.enqueueTask(LongRunningTask, &taskData[0], LOW, 0);
-    scheduler.enqueueTask(LongRunningTask, &taskData[1], LOW, 1);
+    // dynamically allocate array for cancellable task IDs
+    int* cancelIds = new int[numCancellableTasks];
+    
+    // enqueue long running tasks (they will block workers)
+    sprintf_s(msg, "Enqueueing %d long-running tasks (3 sec each)...", numLongTasks);
+    globalLogger.info(msg);
+    
+    for (int i = 0; i < numLongTasks; i++) {
+        scheduler.enqueueTask(LongRunningTask, &taskData[i], LOW, i);
+    }
     
     Sleep(100);
     
     // enqueue CANCELLABLE tasks
-    globalLogger.warning("Enqueueing 5 CANCELLABLE tasks...");
-    int cancelId1 = scheduler.enqueueCancellableTask(QuickTask, &taskData[2], MEDIUM);
-    int cancelId2 = scheduler.enqueueCancellableTask(QuickTask, &taskData[3], MEDIUM);
-    int cancelId3 = scheduler.enqueueCancellableTask(QuickTask, &taskData[4], MEDIUM);
-    int cancelId4 = scheduler.enqueueCancellableTask(QuickTask, &taskData[5], MEDIUM);
-    int cancelId5 = scheduler.enqueueCancellableTask(QuickTask, &taskData[6], MEDIUM);
+    sprintf_s(msg, "Enqueueing %d CANCELLABLE tasks...", numCancellableTasks);
+    globalLogger.warning(msg);
     
-    sprintf_s(msg, "Cancellable task IDs: %d, %d, %d, %d, %d", 
-              cancelId1, cancelId2, cancelId3, cancelId4, cancelId5);
-    globalLogger.info(msg);
+    for (int i = 0; i < numCancellableTasks; i++) {
+        cancelIds[i] = scheduler.enqueueCancellableTask(
+            QuickTask, 
+            &taskData[numLongTasks + i], 
+            MEDIUM
+        );
+    }
+    
+    // print all cancellable IDs
+    std::cout << "  Cancellable task IDs: ";
+    for (int i = 0; i < numCancellableTasks; i++) {
+        std::cout << cancelIds[i];
+        if (i < numCancellableTasks - 1) std::cout << ", ";
+    }
+    std::cout << std::endl;
     
     Sleep(500);
     
     // cancel some tasks BEFORE they execute
     std::cout << std::endl;
-    globalLogger.error("CANCELLING tasks 1, 3, and 4...");
-    scheduler.cancelTask(cancelId2);  // cancel task 3
-    scheduler.cancelTask(cancelId4);  // cancel task 5
-    scheduler.cancelTask(cancelId5);  // cancel task 6
+    globalLogger.error("CANCELLING tasks at indices 1, 3, and 4...");
+    
+    scheduler.cancelTask(cancelIds[1]);  // cancel second task
+    scheduler.cancelTask(cancelIds[3]);  // cancel fourth task
+    scheduler.cancelTask(cancelIds[4]);  // cancel fifth task
     
     std::cout << std::endl;
     globalLogger.info("Expected result:");
-    std::cout << "  - Tasks 0, 1 should complete (long running)\n";
-    std::cout << "  - Tasks 2, 4 should execute (NOT cancelled)\n";
-    std::cout << "  - Tasks 3, 5, 6 should be CANCELLED\n" << std::endl;
+    std::cout << "  - Long running tasks should complete\n";
+    std::cout << "  - Cancellable tasks at indices 0, 2 should execute\n";
+    std::cout << "  - Cancellable tasks at indices 1, 3, 4 should be CANCELLED\n" << std::endl;
     
     std::cout << "=== Execution: ===\n" << std::endl;
     
@@ -98,6 +119,10 @@ int main() {
     std::cout << "\n";
     globalLogger.info("=== FINAL METRICS ===");
     scheduler.getMetrics().printStats();
+    
+    // cleanup - no memory leaks
+    delete[] taskData;
+    delete[] cancelIds;
     
     return 0;
 }
