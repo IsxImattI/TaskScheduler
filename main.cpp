@@ -1,14 +1,19 @@
 #include <iostream>
 #include <windows.h>
 #include "TaskScheduler.h"
+#include "Logger.h"
 
 void PriorityTask(void* arg) {
     int taskId = *(int*)arg;
     
-    std::cout << "[Task " << taskId << "] started on thread " 
-              << GetCurrentThreadId() << std::endl;
+    char msg[128];
+    sprintf_s(msg, "Task %d started on thread %lu", taskId, GetCurrentThreadId());
+    globalLogger.task(msg);
+    
     Sleep(1000);  // simulate work
-    std::cout << "[Task " << taskId << "] completed!" << std::endl;
+    
+    sprintf_s(msg, "Task %d completed!", taskId);
+    globalLogger.success(msg);
 }
 
 // monitoring thread - prints metrics every second
@@ -24,16 +29,26 @@ DWORD WINAPI MonitoringThread(LPVOID param) {
 }
 
 int main() {
-    std::cout << "=== TaskScheduler with Priority Queue & Metrics ===" << std::endl;
-    std::cout << "Main thread ID: " << GetCurrentThreadId() << std::endl << std::endl;
+    globalLogger.info("=== TaskScheduler with Priority Queue & Metrics ===");
+    
+    char msg[128];
+    sprintf_s(msg, "Main thread ID: %lu", GetCurrentThreadId());
+    globalLogger.info(msg);
+    
+    std::cout << std::endl;
     
     // create scheduler with 2 worker threads (for clearer output)
+    globalLogger.info("Creating scheduler with 2 worker threads...");
     TaskScheduler scheduler(2);
+    globalLogger.success("Scheduler created successfully!");
     
     // start monitoring thread for real-time metrics
+    globalLogger.info("Starting monitoring thread...");
     HANDLE monitor = CreateThread(NULL, 0, MonitoringThread, &scheduler, 0, NULL);
     
-    std::cout << "Enqueueing tasks with different priorities...\n" << std::endl;
+    std::cout << std::endl;
+    globalLogger.info("Enqueueing tasks with different priorities...");
+    std::cout << std::endl;
     
     // create task IDs
     int taskIds[12];
@@ -42,7 +57,7 @@ int main() {
     }
     
     // enqueue LOW priority tasks
-    std::cout << "Adding LOW priority tasks (0-2)..." << std::endl;
+    globalLogger.info("Adding LOW priority tasks (0-2)...");
     scheduler.enqueueTask(PriorityTask, &taskIds[0], LOW, 0);
     scheduler.enqueueTask(PriorityTask, &taskIds[1], LOW, 1);
     scheduler.enqueueTask(PriorityTask, &taskIds[2], LOW, 2);
@@ -50,7 +65,7 @@ int main() {
     Sleep(100); // small delay
     
     // enqueue MEDIUM priority tasks
-    std::cout << "Adding MEDIUM priority tasks (3-5)..." << std::endl;
+    globalLogger.info("Adding MEDIUM priority tasks (3-5)...");
     scheduler.enqueueTask(PriorityTask, &taskIds[3], MEDIUM, 3);
     scheduler.enqueueTask(PriorityTask, &taskIds[4], MEDIUM, 4);
     scheduler.enqueueTask(PriorityTask, &taskIds[5], MEDIUM, 5);
@@ -58,7 +73,7 @@ int main() {
     Sleep(100);
     
     // enqueue HIGH priority tasks
-    std::cout << "Adding HIGH priority tasks (6-8)..." << std::endl;
+    globalLogger.warning("Adding HIGH priority tasks (6-8)...");
     scheduler.enqueueTask(PriorityTask, &taskIds[6], HIGH, 6);
     scheduler.enqueueTask(PriorityTask, &taskIds[7], HIGH, 7);
     scheduler.enqueueTask(PriorityTask, &taskIds[8], HIGH, 8);
@@ -66,7 +81,7 @@ int main() {
     Sleep(100);
     
     // enqueue CRITICAL priority tasks
-    std::cout << "Adding CRITICAL priority tasks (9-11)..." << std::endl;
+    globalLogger.error("Adding CRITICAL priority tasks (9-11)...");
     scheduler.enqueueTask(PriorityTask, &taskIds[9], CRITICAL, 9);
     scheduler.enqueueTask(PriorityTask, &taskIds[10], CRITICAL, 10);
     scheduler.enqueueTask(PriorityTask, &taskIds[11], CRITICAL, 11);
@@ -83,10 +98,11 @@ int main() {
     WaitForSingleObject(monitor, INFINITE);
     CloseHandle(monitor);
     
-    std::cout << "\n=== All tasks completed! ===" << std::endl;
+    globalLogger.success("All tasks completed!");
     
     // print final metrics
-    std::cout << "\n=== FINAL METRICS ===" << std::endl;
+    std::cout << "\n";
+    globalLogger.info("=== FINAL METRICS ===");
     scheduler.getMetrics().printStats();
     
     return 0;
