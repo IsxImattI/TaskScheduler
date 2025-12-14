@@ -27,14 +27,17 @@ A production-ready task scheduler implementation in C++ using WinAPI primitives,
 
 ### Startup & Task Enqueueing
 ![Startup](scre1.png)
+
 *Color-coded logging with millisecond-precision timestamps*
 
 ### Real-Time Execution
 ![Execution](scre2.png)
+
 *Live metrics showing active tasks, throughput, and completion status*
 
 ### Final Results
 ![Results](scre3.png)
+
 *Complete performance statistics and priority ordering verification*
 
 ## 🛠️ Building the Project
