@@ -16,6 +16,7 @@ A production-ready task scheduler implementation in C++ using WinAPI primitives,
 - 🎨 **Professional Logging** - Color-coded, timestamped output
 - 🛡️ **Graceful Shutdown** - Proper cleanup and thread lifecycle management
 - 🛑 **Task Cancellation** - Cancel pending tasks before execution (dynamic linked list)
+- 🔮 **Future/Promise Pattern** - Async task execution with typed return values
 
 ### Technical Highlights
 - **No STL Dependencies** - Custom implementations of Queue and PriorityQueue
@@ -114,6 +115,7 @@ TaskScheduler/
 ├── TaskScheduler.h      # Main scheduler with thread pool
 ├── Metrics.h            # Performance tracking system
 ├── Logger.h             # Timestamped, color-coded logging
+├── Future.h             # Future/Promise pattern for async results
 └── main.cpp             # Demo & test application
 ```
 
@@ -167,7 +169,7 @@ User Thread                Worker Threads
 ## 🚧 Future Improvements
 
 - [ ] **Task Dependencies** - DAG-based task execution order
-- [ ] **Return Values** - Future/Promise pattern for async results
+- [x] **Return Values** - Future/Promise pattern for async results
 - [ ] **Dynamic Thread Pool** - Auto-scaling based on load
 - [x] **Task Cancellation** - Ability to cancel pending tasks
 - [ ] **Configuration File** - JSON/INI for scheduler settings
